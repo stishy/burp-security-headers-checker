@@ -9,8 +9,8 @@ import java.util.List;
 
 
 public class BurpExtender implements IBurpExtender, IScannerCheck {
-    private static final String EXTENSION_NAME = "Burp Security Headers Checker";
-    private static final String EXTENSION_VERSION = "1.1.0";
+    private static final String EXTENSION_NAME = "Burp Security Headers Checker - Cam";
+    private static final String EXTENSION_VERSION = "1.2.0";
 
     private IBurpExtenderCallbacks burpExtenderCallbacks;
     private IExtensionHelpers burpExtensionHelpers;
