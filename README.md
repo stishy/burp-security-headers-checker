@@ -1,5 +1,5 @@
 # Burp Security Headers Checker
-Super simple Burp Suite extension adding passive scanner checks for missing security headers in server responses. Adjusted the code to only report the issue once if mulitples web pages have missing X-Frame-Options. The issue will only report once.
+Super simple Burp Suite extension adding passive scanner checks for missing security headers in server responses. Adjusted the code to only report the issue once if mulitples web pages have missing X-Frame-Options. The issue will only report once at the base URL and not the subpage.
 
 Headers checked:
 * Content-Security-Policy (CSP)
