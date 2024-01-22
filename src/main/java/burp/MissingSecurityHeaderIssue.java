@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 class MissingSecurityHeaderIssue implements IScanIssue {
-
+    private String pathData;
     private static final int ISSUE_TYPE = 0;
     private static final String SEVERITY = "Low";
     private static final String CONFIDENCE = "Certain";
@@ -21,10 +21,24 @@ class MissingSecurityHeaderIssue implements IScanIssue {
 
     private final java.net.URL url;
     private final String issueName;
-    private final String issueDetail;
+    private String issueDetail; // Not final anymore
     private final IHttpRequestResponse[] httpMessages;
     private final IHttpService httpService;
 
+    // Modify the constructor to initialize issueDetail
+    public MissingSecurityHeaderIssue(java.net.URL url, String issueName, String issueDetail, IHttpRequestResponse[] httpMessages, IHttpService httpService) {
+    this.url = url;
+    this.issueName = issueName;
+    this.issueDetail = issueDetail;
+    this.httpMessages = httpMessages;
+    this.httpService = httpService;
+}
+
+    // Modify the appendPathData method to format pathData differently
+    public void appendPathData(String pathData) {
+        // Format pathData as a bullet point and add it to the issue detail
+        this.issueDetail += "<ul><li>Hi " + pathData + "</li></ul>";
+    }
 
     @Override
     public int getIssueType() {
@@ -54,5 +68,17 @@ class MissingSecurityHeaderIssue implements IScanIssue {
     @Override
     public String getRemediationDetail() {
         return REMEDIATION_DETAIL;
+    }
+
+    @Override
+    public String getIssueDetail() {
+        // Split the issueDetail by line breaks and wrap each line in <li> tags
+        String[] lines = issueDetail.split("\n");
+        StringBuilder sb = new StringBuilder("<ul>");
+        for (String line : lines) {
+            sb.append("<li>").append(line).append("</li>");
+        }
+        sb.append("</ul>");
+        return sb.toString();
     }
 }
