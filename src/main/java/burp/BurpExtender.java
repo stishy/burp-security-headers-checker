@@ -6,6 +6,9 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.net.URL;
+
+import burp.*;
 
 
 public class BurpExtender implements IBurpExtender, IScannerCheck {
@@ -31,18 +34,15 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
         stdout.println(EXTENSION_NAME + " version: " + EXTENSION_VERSION + " has been loaded");
     }
 
-
     @Override
     public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse) {
         return checkResponseSecurityHeaders(baseRequestResponse);
     }
 
-
     @Override
     public List<IScanIssue> doActiveScan(IHttpRequestResponse baseRequestResponse, IScannerInsertionPoint insertionPoint) {
         return Collections.emptyList();
     }
-
 
     @Override
     public int consolidateDuplicateIssues(IScanIssue existingIssue, IScanIssue newIssue) {
@@ -51,7 +51,16 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
         else return 0;
     }
 
-
+    private String getPathData(String url) {
+        try {
+            URL parsedUrl = new URL(url);
+            String path = parsedUrl.getPath();
+            return path;
+        } catch (java.net.MalformedURLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
     private List<IScanIssue> checkResponseSecurityHeaders(IHttpRequestResponse baseRequestResponse) {
         val response = baseRequestResponse.getResponse();
         val responseInfo = this.burpExtensionHelpers.analyzeResponse(response);
@@ -67,10 +76,9 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
                     break;
                 }
             }
-
             if (!containsCheckedHeader) {
                 // Create a unique identifier for the issue based on the header and URL
-                String issueIdentifier = headerToCheck.getHeaderName() + responseInfo.getUrl().toString();
+                String issueIdentifier = headerToCheck.getHeaderName() + this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
 
                 // Check if the issue has already been reported
                 if (!reportedIssues.contains(issueIdentifier)) {
@@ -78,40 +86,48 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
                     reportedIssues.add(issueIdentifier);
                     val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse);
                     scanIssuesList.add(missingHeadersScanIssue);
+                } else {
+                    for (IScanIssue existingIssue : scanIssuesList) {
+                        if (existingIssue.getIssueName().equals("Missing Security Header: " + headerToCheck.getHeaderName())) {
+                            String urlData = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
+                            String pathData = getPathData(urlData);
+                            // Append path data to the existing issue's description using a custom method
+                            ((MissingSecurityHeaderIssue) existingIssue).appendPathData(pathData);
+                            break;
+                        }
+                    }
                 }
             }
         }
         return scanIssuesList;
     }
 
-
     private MissingSecurityHeaderIssue createNewScannerIssue(int statusCode, CheckedSecurityHeadersEnum headerToCheck, IHttpRequestResponse baseRequestResponse) {
         String issueName = "";
-
-        if (statusCode < 400) {
-            issueName = "Missing Security Header: " + headerToCheck.getHeaderName();
-        }
-
-        if (statusCode >= 400 && statusCode < 500) {
-            issueName = "Missing Security Header in 4XX response: " + headerToCheck.getHeaderName();
-        }
-
-        if (statusCode == 500) {
-            issueName = "Missing Security Header in 500 response: " + headerToCheck.getHeaderName();
-        }
-
-        if (statusCode > 500) {
-            issueName = "Missing Security Header in other response: " + headerToCheck.getHeaderName();
-        }
+        issueName = "Missing Security Header: " + headerToCheck.getHeaderName();
         
-        // Use the base URL instead of the full URL
-        return new MissingSecurityHeaderIssue(
-                this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol() + "://" + this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost(),
-                issueName,
-                "No " + headerToCheck.getHeaderName() + " security header has been detected in the server responses.",
-                new IHttpRequestResponse[]{this.burpExtenderCallbacks.applyMarkers(baseRequestResponse, null, null)},
-                baseRequestResponse.getHttpService()
-        );
-    }
+        // Extract protocol and host
+        String protocol = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol();
+        String host = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost();
+        String fullUrl = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
+        String path = getPathData(fullUrl);
 
+        try {
+            // Create a URL object from protocol and host
+            URL url = new URL(protocol + "://" + host);
+    
+            // Use the base URL instead of the full URL
+            return new MissingSecurityHeaderIssue(
+                    url,
+                    issueName,
+                    "No " + headerToCheck.getHeaderName() + " security header has been detected in the server responses. For the following paths:<ul><li>" + path + "</li></ul>",
+                    new IHttpRequestResponse[]{this.burpExtenderCallbacks.applyMarkers(baseRequestResponse, null, null)},
+                    baseRequestResponse.getHttpService()
+            );
+        } catch (java.net.MalformedURLException e) {
+            // Handle the MalformedURLException here
+            e.printStackTrace(); // You can log the exception or take appropriate action
+            return null; // Return null or handle the error as needed
+        }
+    }
 }
