@@ -15,6 +15,9 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
     private IBurpExtenderCallbacks burpExtenderCallbacks;
     private IExtensionHelpers burpExtensionHelpers;
 
+    // Maintain a global list to store reported issues
+    private List<String> reportedIssues = new ArrayList<>();
+
 
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -66,11 +69,18 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
             }
 
             if (!containsCheckedHeader) {
-                val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse);
-                scanIssuesList.add(missingHeadersScanIssue);
+                // Create a unique identifier for the issue based on the header and URL
+                String issueIdentifier = headerToCheck.getHeaderName() + responseInfo.getUrl().toString();
+
+                // Check if the issue has already been reported
+                if (!reportedIssues.contains(issueIdentifier)) {
+                    // If not reported, add to the list and create a new issue
+                    reportedIssues.add(issueIdentifier);
+                    val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse);
+                    scanIssuesList.add(missingHeadersScanIssue);
+                }
             }
         }
-
         return scanIssuesList;
     }
 
