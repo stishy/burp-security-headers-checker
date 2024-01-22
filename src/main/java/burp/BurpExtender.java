@@ -105,7 +105,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
         }
 
         return new MissingSecurityHeaderIssue(
-                this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl(),
+                this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol() + "://" + this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost(),
                 issueName,
                 "No " + headerToCheck.getHeaderName() + " security header has been detected in the server responses.",
                 new IHttpRequestResponse[]{this.burpExtenderCallbacks.applyMarkers(baseRequestResponse, null, null)},
