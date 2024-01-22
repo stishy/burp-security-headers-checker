@@ -103,7 +103,8 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
         if (statusCode > 500) {
             issueName = "Missing Security Header in other response: " + headerToCheck.getHeaderName();
         }
-
+        
+        // Use the base URL instead of the full URL
         return new MissingSecurityHeaderIssue(
                 this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol() + "://" + this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost(),
                 issueName,
