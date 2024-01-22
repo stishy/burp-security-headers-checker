@@ -11,7 +11,6 @@ public enum CheckedSecurityHeadersEnum {
     HSTS("Strict-Transport-Security"),
     X_FRAME_OPTIONS("X-Frame-Options"),
     X_CONTENT_TYPE("X-Content-Type-Options"),
-    X_XSS("X-XSS-Protection"),
     REFERRER_POLICY("Referrer-Policy");
 
     private final String headerName;
