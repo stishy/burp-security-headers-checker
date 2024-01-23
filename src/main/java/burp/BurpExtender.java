@@ -10,7 +10,6 @@ import java.net.URL;
 
 import burp.*;
 
-
 public class BurpExtender implements IBurpExtender, IScannerCheck {
     private static final String EXTENSION_NAME = "Burp Security Headers Checker - Stishy";
     private static final String EXTENSION_VERSION = "1.2.0";
@@ -20,7 +19,6 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
 
     // Maintain a global list to store reported issues
     private List<String> reportedIssues = new ArrayList<>();
-
 
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -61,6 +59,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
             return null;
         }
     }
+
     private List<IScanIssue> checkResponseSecurityHeaders(IHttpRequestResponse baseRequestResponse) {
         val response = baseRequestResponse.getResponse();
         val responseInfo = this.burpExtensionHelpers.analyzeResponse(response);
@@ -76,6 +75,7 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
                     break;
                 }
             }
+
             if (!containsCheckedHeader) {
                 // Create a unique identifier for the issue based on the header and URL
                 String issueIdentifier = headerToCheck.getHeaderName() + this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
@@ -84,46 +84,55 @@ public class BurpExtender implements IBurpExtender, IScannerCheck {
                 if (!reportedIssues.contains(issueIdentifier)) {
                     // If not reported, add to the list and create a new issue
                     reportedIssues.add(issueIdentifier);
-                    val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse);
+                    val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse, false); 
                     scanIssuesList.add(missingHeadersScanIssue);
                 } else {
-                    for (IScanIssue existingIssue : scanIssuesList) {
-                        if (existingIssue.getIssueName().equals("Missing Security Header: " + headerToCheck.getHeaderName())) {
-                            String urlData = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
-                            String pathData = getPathData(urlData);
-                            // Append path data to the existing issue's description using a custom method
-                            ((MissingSecurityHeaderIssue) existingIssue).appendPathData(pathData);
-                            break;
-                        }
-                    }
+                    // If the issue has already been reported, create a new issue but mark the boolean as true
+                    val missingHeadersScanIssue = createNewScannerIssue(responseInfo.getStatusCode(), headerToCheck, baseRequestResponse, true); 
+                    scanIssuesList.add(missingHeadersScanIssue);
                 }
             }
         }
         return scanIssuesList;
     }
 
-    private MissingSecurityHeaderIssue createNewScannerIssue(int statusCode, CheckedSecurityHeadersEnum headerToCheck, IHttpRequestResponse baseRequestResponse) {
-        String issueName = "";
-        issueName = "Missing Security Header: " + headerToCheck.getHeaderName();
-        
+    private MissingSecurityHeaderIssue createNewScannerIssue(int statusCode, CheckedSecurityHeadersEnum headerToCheck, IHttpRequestResponse baseRequestResponse, boolean repeat) {
+        String issueName = "Missing Security Header: " + headerToCheck.getHeaderName(); // Removed unnecessary initialization
+
         // Extract protocol and host
-        String protocol = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol();
-        String host = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost();
-        String fullUrl = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
-        String path = getPathData(fullUrl);
+        String protocol = "";
+        String host = "";
+        String path = "";
+
+        if (baseRequestResponse != null) {
+            protocol = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getProtocol();
+            host = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().getHost();
+            String fullUrl = this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl().toString();
+            path = getPathData(fullUrl);
+        }
 
         try {
             // Create a URL object from protocol and host
             URL url = new URL(protocol + "://" + host);
-    
-            // Use the base URL instead of the full URL
-            return new MissingSecurityHeaderIssue(
+
+            if (!repeat) {
+                // Use the base URL instead of the full URL
+                return new MissingSecurityHeaderIssue(
                     url,
                     issueName,
                     "No " + headerToCheck.getHeaderName() + " security header has been detected in the server responses. For the following paths:<ul><li>" + path + "</li></ul>",
-                    new IHttpRequestResponse[]{this.burpExtenderCallbacks.applyMarkers(baseRequestResponse, null, null)},
+                    baseRequestResponse != null ? new IHttpRequestResponse[]{this.burpExtenderCallbacks.applyMarkers(baseRequestResponse, null, null)} : null,
+                    baseRequestResponse != null ? baseRequestResponse.getHttpService() : null
+                );
+            } else {
+                return new MissingSecurityHeaderIssue(
+                    this.burpExtensionHelpers.analyzeRequest(baseRequestResponse).getUrl(),
+                    issueName,
+                    "No " + headerToCheck.getHeaderName() + " security header has been detected in the server responses. For the following paths:<ul><li>" + path + "</li></ul>",
+                    null,
                     baseRequestResponse.getHttpService()
-            );
+                );
+            }
         } catch (java.net.MalformedURLException e) {
             // Handle the MalformedURLException here
             e.printStackTrace(); // You can log the exception or take appropriate action
